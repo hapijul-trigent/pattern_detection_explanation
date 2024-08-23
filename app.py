@@ -33,73 +33,55 @@ st.markdown(
 )
 st.divider()
 # Main Page Title and Caption
-st.title("Entities in Clinical Trial Abstracts")  # Placeholder for title
+st.title("Video Processing Frame by Frame")
 # Placeholder for caption
 st.caption("This model extracts to trial design, diseases, drugs, population,Heart_Disease, Hyperlipidemia, Diabetes, Age, Test, Test_Result, Birth_Entity, Drug_BrandName, Date, etc. relevant entities from clinical trial abstracts.")
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+import streamlit as st
+import cv2
+import tempfile
+import os
+
+def process_frame(frame):
+    # Apply any processing to the frame (e.g., grayscale conversion)
+    # Example: Convert the frame to grayscale
+    processed_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return processed_frame
+
+def main():
 
 
-# Function to process video and detect motion
-def process_video(video_file):
-    # Create a temporary directory to store processed video
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_file:
-        temp_file.write(video_file.read())
-        temp_file_path = temp_file.name
-        
-    output_path = os.path.join(tempfile.gettempdir(), "processed_video.mp4")
+    # Upload video
+    video_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
 
-    # Initialize video capture and writer
-    video_capture = cv2.VideoCapture(temp_file_path)
-    if not video_capture.isOpened():
-        st.error("Failed to open video file.")
-        return None
-    
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    fps = video_capture.get(cv2.CAP_PROP_FPS)
-    width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    if video_file is not None:
+        # Create a temporary file to store the video
+        tfile = tempfile.NamedTemporaryFile(delete=False, dir='outputs/temp')
+        tfile.write(video_file.read())
 
-    # Create Background Subtractor
-    bg_subtractor = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+        # Open the video file
+        cap = cv2.VideoCapture(tfile.name)
 
-    while True:
-        ret, frame = video_capture.read()
-        if not ret:
-            break
+        stframe = st.empty()  # Placeholder for displaying the video frames
 
-        # Apply background subtractor
-        foreground_mask = bg_subtractor.apply(frame)
-        _, threshold = cv2.threshold(foreground_mask, 120, 255, cv2.THRESH_BINARY)
-        dilated = cv2.dilate(threshold, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)), iterations=2)
-        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        for contour in contours:
-            if cv2.contourArea(contour) > 50:
-                x, y, w, h = cv2.boundingRect(contour)
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 0), 2)
+            # Process the frame
+            processed_frame = process_frame(frame)
 
-        video_writer.write(frame)
+            # Convert the processed frame to RGB (needed for Streamlit display)
+            processed_frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_GRAY2RGB)
 
-    video_capture.release()
-    video_writer.release()
+            # Display the frame in Streamlit
+            stframe.image(processed_frame_rgb, channels="RGB")
 
-    # Clean up temporary file
-    os.remove(temp_file_path)
+        # Release the video capture object and remove the temporary file
+        cap.release()
+        os.remove(tfile.name)
 
-    return output_path
-
-
-uploaded_file = st.file_uploader("Choose a video file", type=["mp4", "avi"])
-
-if uploaded_file is not None:
-    st.video(uploaded_file, format="video/mp4")
-
-    with st.spinner("Processing video..."):
-        output_video_path = process_video(uploaded_file)
-        print(output_video_path)
-
-    if output_video_path:
-        st.video(output_video_path)
-        st.success("Motion detection complete!")
-    else:
-        st.error("Failed to process video.")
+if __name__ == "__main__":
+    main()
