@@ -10,6 +10,7 @@ import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
 from src.motion_detection  import optical_flow_motion_detection, visualize_motion_vectors
+from src.movement_tracker import annotate_frame_with_ssd
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -64,7 +65,7 @@ def create_temp_video_file(video_file: BinaryIO, temp_dir: str = 'outputs/temp')
 def process_frame(previous_frame: np.ndarray, curr_frame: np.ndarray):
     previous_gray_frame = cv2.cvtColor(previous_frame, cv2.COLOR_RGB2GRAY)
     curr_gray_frame = cv2.cvtColor(curr_frame, cv2.COLOR_RGB2GRAY)
-    motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = optical_flow_motion_detection(prev_frame=previous_gray_frame, curr_frame=curr_gray_frame)
+    motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = optical_flow_motion_detection(prev_frame=previous_gray_frame, curr_frame=curr_gray_frame, threshold=2, min_distance=9, quality_level=0.5)
     return motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts
 
 
@@ -114,6 +115,16 @@ def get_or_create_session_state_variable(key, default_value=None):
 
 
 def main():
+    # States session 
+    get_or_create_session_state_variable("video_file", None)
+    get_or_create_session_state_variable("previous_frame", None)
+    get_or_create_session_state_variable("current_frame", None)
+    get_or_create_session_state_variable("motion_detected", False)
+    get_or_create_session_state_variable("motion_vectors", None)
+    get_or_create_session_state_variable("avg_magnitude", 0.0)
+    get_or_create_session_state_variable("good_next_pts", None)
+    get_or_create_session_state_variable("good_prev_pts", None)
+    get_or_create_session_state_variable("algortihm", default_value='Optical Flow')
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3])
@@ -131,7 +142,11 @@ def main():
 
         if video_file is not None:
             source = create_temp_video_file(video_file=video_file)
-            bufferQueue = queue.Queue(maxsize=500)
+
+        if video_file:
+            st.header('Configure')
+            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'Segmentation', 'Single Shot Detectore(SSD)'])
+            
 
     # PreviewPanel
     with previewPanel:
@@ -143,15 +158,18 @@ def main():
                 panel = st.empty()
 
                 for previous_frame, curr_frame in capture_frames(source):
-                    
-                    motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
-                    if motion_detected:
-                        
-                        vframe = visualize_motion_vectors(prev_frame=previous_frame, curr_frame=curr_frame, prev_pts=good_prev_pts, next_pts=good_next_pts)
+                    if st.session_state.algortihm == 'Optical Flow':
+                        motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
+                        if motion_detected:
+                            
+                            vframe = visualize_motion_vectors(prev_frame=previous_frame, curr_frame=curr_frame, prev_pts=good_prev_pts, next_pts=good_next_pts)
+                            stream_frames(vframe, panel)
+                            continue
+                        stream_frames(curr_frame, panel)
+                        previous_frame = curr_frame
+                    elif st.session_state.algortihm == 'Single Shot Detectore(SSD)':
+                        vframe = annotate_frame_with_ssd(frame=curr_frame)
                         stream_frames(vframe, panel)
-                        continue
-                    stream_frames(curr_frame, panel)
-                    previous_frame = curr_frame
         
 
         

@@ -1,59 +1,39 @@
 import cv2
-import streamlit as st
-from ultralytics import YOLO
+import numpy as np
 
-# Load the YOLOv8 model
-model = YOLO('/workspaces/pattern_detection_explanation/models/yolov8n.pt')  # Ensure you have the correct path to your YOLOv8 model
+def annotate_frame_with_ssd(frame: np.ndarray) -> np.ndarray:
+    """
+    Annotates the input frame with bounding boxes and labels detected by SSD.
 
-def process_video(video_file):
-    # Open the video file
-    cap = cv2.VideoCapture(video_file.name)
-    
-    # Create a video writer to save the output video
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter('outputs/test_output.mp4', fourcc, 20.0, (640, 480))
+    Args:
+        frame (np.ndarray): The input frame to be processed, expected to be a BGR image.
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    Returns:
+        np.ndarray: The annotated frame with bounding boxes and labels.
+    """
+    # Load the pre-trained SSD model and configuration files
+    net = cv2.dnn.readNetFromCaffe("models/deploy.prototxt", "models/mobilenet_iter_73000.caffemodel")
+
+    # Prepare the frame for SSD
+    blob = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), (104, 117, 123))
+    net.setInput(blob)
+    detections = net.forward()
+
+    # Get frame dimensions
+    (h, w) = frame.shape[:2]
+
+    # Loop over the detections
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
         
-        # Detect objects in the frame
-        results = model(frame)
-        
-        # Draw bounding boxes and labels
-        for bbox in results.xyxy[0].numpy():
-            x1, y1, x2, y2, conf, cls = bbox
-            label = f'Class {int(cls)} {conf:.2f}'
-            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-            cv2.putText(frame, label, (int(x1), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-        
-        # Write the frame with bounding boxes
-        out.write(frame)
-    
-    # Release the video capture and writer
-    cap.release()
-    out.release()
+        if confidence > 0.5:  # Confidence threshold
+            # Extract the bounding box coordinates
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (startX, startY, endX, endY) = box.astype("int")
 
-    return 'outputs/test_output.mp4'
-
-
-import streamlit as st
-
-def main():
-    st.title('Object Tracking with YOLOv8')
-
-    uploaded_file = st.file_uploader("Upload a video", type=["mp4"])
-
-    if uploaded_file is not None:
-        st.video(uploaded_file)
-
-        # Process the video
-        output_video = process_video(uploaded_file)
-        
-        # Display the output video
-        st.write('Processed')
-        st.video(output_video)
-
-if __name__ == "__main__":
-    main()
+            # Draw bounding box and label on the frame
+            label = f"Object {i}"
+            cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
+            cv2.putText(frame, label, (startX, startY - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            print(f"Detected: {label}")
+    return frame
