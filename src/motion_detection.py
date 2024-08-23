@@ -4,16 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 from typing import Tuple
 
-
-# Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-import cv2
-import numpy as np
-import logging
-from typing import Tuple
-
+### Optical FLow for MOtion Detection
 def optical_flow_motion_detection(
     prev_frame: np.ndarray,
     curr_frame: np.ndarray,
@@ -51,24 +42,21 @@ def optical_flow_motion_detection(
         motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = optical_flow_motion_detection(prev_frame, curr_frame)
     """
     try:
-        # Validate input types
-        if not isinstance(prev_frame, np.ndarray) or not isinstance(curr_frame, np.ndarray):
+        if not isinstance(prev_frame, np.ndarray) or not isinstance(curr_frame, np.ndarray):    # Validate input types
             raise TypeError("Input frames must be numpy arrays.")
         
-        # Validate frame dimensions and type
-        if prev_frame.shape != curr_frame.shape:
+        if prev_frame.shape != curr_frame.shape:                 # Validate frame dimensions and type
             raise ValueError("Input frames must have the same dimensions.")
         if len(prev_frame.shape) != 2 or len(curr_frame.shape) != 2:
             raise ValueError("Input frames must be grayscale images.")
 
-        # Parameters for Lucas-Kanade optical flow
+        # Find the corners in the previous frame
         lk_params = dict(
             winSize=(21, 21),
             maxLevel=5,
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.01)
         )
-        
-        # Find the corners in the previous frame
+    
         prev_pts = cv2.goodFeaturesToTrack(
             prev_frame,
             maxCorners=max_corners,
@@ -79,28 +67,27 @@ def optical_flow_motion_detection(
         if prev_pts is None:
             return False, np.array([]), 0.0, np.array([]), np.array([])
         
-        # Apply Gaussian blur to smooth the frames
-        blurred_prev_frame = cv2.GaussianBlur(src=prev_frame, ksize=(7, 7), sigmaX=0)
-        blurred_curr_frame = cv2.GaussianBlur(src=curr_frame, ksize=(7, 7), sigmaX=0)
-
-        next_pts, status, _ = cv2.calcOpticalFlowPyrLK(prev_frame, curr_frame, prev_pts, None, **lk_params)
+        # Compute feature points
+        next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
+            cv2.GaussianBlur(src=prev_frame, ksize=(7, 7), sigmaX=0), 
+            cv2.GaussianBlur(src=curr_frame, ksize=(7, 7), sigmaX=0), 
+            prev_pts, None, **lk_params
+        )
         
-        # Select good points
-        if next_pts is not None and status is not None:
+        if next_pts is not None and status is not None:             # Select good points
             good_next_pts = next_pts[status == 1]
             good_prev_pts = prev_pts[status == 1]
             
             # Compute the magnitude of motion vectors
             motion_vectors = good_next_pts - good_prev_pts
             magnitude = np.sqrt(motion_vectors[:, 0]**2 + motion_vectors[:, 1]**2)
-            
-            # Log the average magnitude of motion vectors
             avg_magnitude = np.mean(magnitude)
+
             logging.info(f"Motion vectors Shape: {motion_vectors.shape}")
             logging.info(f"Average magnitude of motion vectors: {avg_magnitude}")
             
-            # Motion is detected if the average magnitude exceeds the threshold
-            return avg_magnitude > threshold, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts
+            
+            return avg_magnitude > threshold, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts               # Motion is detected if the average magnitude exceeds the threshold
         else:
             return False, np.array([]), 0.0, np.array([]), np.array([])
         
