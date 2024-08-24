@@ -65,7 +65,7 @@ def create_temp_video_file(video_file: BinaryIO, temp_dir: str = 'outputs/temp')
 def process_frame(previous_frame: np.ndarray, curr_frame: np.ndarray):
     previous_gray_frame = cv2.cvtColor(previous_frame, cv2.COLOR_RGB2GRAY)
     curr_gray_frame = cv2.cvtColor(curr_frame, cv2.COLOR_RGB2GRAY)
-    motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = optical_flow_motion_detection(prev_frame=previous_gray_frame, curr_frame=curr_gray_frame, threshold=2, min_distance=9, quality_level=0.5)
+    motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = optical_flow_motion_detection(prev_frame=previous_gray_frame, curr_frame=curr_gray_frame, threshold=1.5, min_distance=3, quality_level=0.3)
     return motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts
 
 
@@ -84,11 +84,26 @@ def capture_frames(source: str):
     cap = cv2.VideoCapture(source)
     ret = True
     ret, previous_frame = cap.read()
+
+    scaling_factor = 0.5
+    original_height, original_width = previous_frame.shape[:2]
+    new_width = int(original_width * scaling_factor)
+    new_height = int(original_height * scaling_factor)
+    previous_frame = cv2.GaussianBlur(
+        src=cv2.resize(previous_frame, (new_width, new_height), interpolation=cv2.INTER_AREA), 
+        ksize=(3,3), sigmaX=0
+    )
     while ret:
         ret, frame = cap.read()
         if not ret:
             break
-        time.sleep(0.1)
+
+        frame = cv2.GaussianBlur(
+            src=cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA), 
+            ksize=(3,3), sigmaX=0
+        )
+
+        time.sleep(0.0001)
         yield previous_frame, frame
         previous_frame = frame
 
@@ -159,17 +174,20 @@ def main():
 
                 for previous_frame, curr_frame in capture_frames(source):
                     if st.session_state.algortihm == 'Optical Flow':
-                        motion_detected, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
+                        motion_detected, motion_vectors, magnitudes, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
                         if motion_detected:
                             
-                            vframe = visualize_motion_vectors(prev_frame=previous_frame, curr_frame=curr_frame, prev_pts=good_prev_pts, next_pts=good_next_pts)
+                            vframe = visualize_motion_vectors(
+                                prev_frame=previous_frame, curr_frame=curr_frame, 
+                                prev_pts=good_prev_pts, next_pts=good_next_pts, 
+                                magnitudes=magnitudes
+                            )
                             stream_frames(vframe, panel)
                             continue
                         stream_frames(curr_frame, panel)
                         previous_frame = curr_frame
                     elif st.session_state.algortihm == 'Single Shot Detectore(SSD)':
-                        vframe = annotate_frame_with_ssd(frame=curr_frame)
-                        stream_frames(vframe, panel)
+                        pass
         
 
         

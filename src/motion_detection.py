@@ -69,9 +69,9 @@ def optical_flow_motion_detection(
         
         # Compute feature points
         next_pts, status, _ = cv2.calcOpticalFlowPyrLK(
-            cv2.GaussianBlur(src=prev_frame, ksize=(7, 7), sigmaX=0), 
-            cv2.GaussianBlur(src=curr_frame, ksize=(7, 7), sigmaX=0), 
-            prev_pts, None, **lk_params
+            prevImg=prev_frame, 
+            nextImg=curr_frame, 
+            prevPts=prev_pts, nextPts=None, **lk_params
         )
         
         if next_pts is not None and status is not None:             # Select good points
@@ -84,10 +84,10 @@ def optical_flow_motion_detection(
             avg_magnitude = np.mean(magnitude)
 
             logging.info(f"Motion vectors Shape: {motion_vectors.shape}")
-            logging.info(f"Average magnitude of motion vectors: {avg_magnitude}")
+            logging.info(f"Magnitude of motion vectors: {magnitude.shape}")
             
             
-            return avg_magnitude > threshold, motion_vectors, avg_magnitude, good_next_pts, good_prev_pts               # Motion is detected if the average magnitude exceeds the threshold
+            return any(magnitude > threshold), motion_vectors, magnitude, good_next_pts, good_prev_pts               # Motion is detected if the average magnitude exceeds the threshold
         else:
             return False, np.array([]), 0.0, np.array([]), np.array([])
         
@@ -97,7 +97,7 @@ def optical_flow_motion_detection(
 
     
 
-def visualize_motion_vectors(prev_frame, curr_frame, prev_pts, next_pts):
+def visualize_motion_vectors(prev_frame, curr_frame, prev_pts, next_pts, magnitudes):
     """
     Visualize the motion vectors between two consecutive frames of a video.
 
@@ -112,8 +112,9 @@ def visualize_motion_vectors(prev_frame, curr_frame, prev_pts, next_pts):
     """
     try:
         color_frame = prev_frame.copy()
-        for (x0, y0), (x1, y1) in zip(prev_pts, next_pts):
-            cv2.arrowedLine(img=color_frame, pt1=(int(x0), int(y0)), pt2=(int(x1), int(y1)), color=(0, 255, 0), thickness=3, tipLength=5, line_type=cv2.LINE_AA)
+        for (x0, y0), (x1, y1), magnitude in zip(prev_pts, next_pts, magnitudes):
+            if magnitude > 1.0:
+                cv2.arrowedLine(img=color_frame, pt1=(int(x0), int(y0)), pt2=(int(x1), int(y1)), color=(0, 255, 0), thickness=2, tipLength=5, line_type=cv2.LINE_4)
         return color_frame
     except Exception as e:
         logging.error(f"Error visualizing motion vectors: {e}")
