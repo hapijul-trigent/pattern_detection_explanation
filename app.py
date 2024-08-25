@@ -9,9 +9,9 @@ import time
 import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
-from src.motion_detection  import visualize_motion_vectors, track_with_opticalFlow
-from src.movement_tracker import run_yolo_tracker
-from src.loaders import load_yolov8
+from src.motion_detection  import visualize_motion_vectors, optical_flow_motion_detection
+from src.trackers import run_yolo_tracker, OpticalFlowTracker
+from src.loaders import load_yolo_model
 from src.utils import (
     get_or_create_session_state_variable, 
     create_temp_video_file, 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Set main panel
 favicon = Image.open("static/images/Trigent_Logo.png")
 st.set_page_config(
-    page_title="Movement Tracker | Trigent AXLR8 Labs",
+    page_title="Smart Motion Insights | Trigent AXLR8 Labs",
     page_icon=favicon,
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -44,12 +44,12 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
+# Main Page Title and Caption
+st.title("Smart Motion Insights")
+st.caption("Explore advanced motion analysis with our Streamlit app. Detect, track, and predict movement patterns in images and videos, and gain clear insights into predictions. Ideal for educators, researchers, and motion analysis enthusiasts")
 st.divider()
 
-# Main Page Title and Caption
-st.title("Motion Tracker")
-st.caption("")
+
 
 # To style the image further, you may need to use additional HTML/CSS in Streamlit:
 st.markdown(
@@ -81,7 +81,7 @@ def main():
     get_or_create_session_state_variable("processed", default_value=False)
 
     # Models
-    yolov8 = load_yolov8(model_path="models/yolov10n.pt")
+    modelDetect, modelSegment = load_yolo_model(model_path="models/")
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -92,64 +92,50 @@ def main():
     with configPanel:
         # Upload video
         video_file = st.file_uploader("Upload a video", type=["mp4",])
-
-        # button to start processing
-        if not st.session_state.processed:
-            if not st.session_state.start_process_button_clicked:
-                st.button("Start Processing", on_click=lambda: st.session_state.update(start_process_button_clicked=True))
-            else:
-                processing, stop = st.columns([1.5, 3])
-                with processing:
-                    st.button("Processing...", disabled=True)
-                with stop:
-                    st.button("Stop", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
-        else:
-            st.button("Processed", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
             
 
         if video_file is not None:
             source = create_temp_video_file(video_file=video_file)
 
         if video_file:
-            st.header('Configure')
+
             st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOv8'])
             resolution_choice, resolution = select_resolution()
             
-
+        # button to start processing
+        if not st.session_state.processed and video_file:
+            if not st.session_state.start_process_button_clicked:
+                st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=True))
+            else:
+                processing, stop = st.columns([1.5, 3])
+                with processing:
+                    st.button("Tracking...", disabled=True)
+                with stop:
+                    st.button("Stop", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
+        else:
+            st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=False), disabled=True)
     # PreviewPanel
     yolov8_thread = None
     with previewPanel:
+        st.title(f"Motion Tracking- {st.session_state.algortihm}")
         # two more columns named objectTrackingPanel, segmentationPanel
-        objectTrackingPanel, segmentationPanel = st.columns([1, 1])
+        objectTrackingPanel, segmentationPanel = st.columns([1, 1], gap='large')
 
-        with objectTrackingPanel:
-            if st.session_state.start_process_button_clicked and source:
-                panel = st.empty()
-                if st.session_state.algortihm == 'Optical Flow':
-                    # for ret, previous_frame, curr_frame in capture_frames(source=source, resolution=resolution):
-                        
-                    #     motion_detected, motion_vectors, magnitudes, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
-                    #     if motion_detected:
-                                
-                    #         vframe = visualize_motion_vectors(
-                    #             prev_frame=previous_frame, curr_frame=curr_frame, 
-                    #             prev_pts=good_prev_pts, next_pts=good_next_pts, 
-                    #             magnitudes=magnitudes
-                    #         )
-                    #         stream_frames(vframe, panel)
-                    #         continue
-                    #     stream_frames(curr_frame, panel)
-                    #     previous_frame = curr_frame
-                    track_with_opticalFlow(video_path=source, resolution=resolution, panel=panel)
-                elif st.session_state.algortihm == 'YOLOv8':
-                    
-                    save_path = run_yolo_tracker(filename=source, model=yolov8, file_index=1, resolution=resolution)
-                    if save_path:
-                        panel.video(data=save_path, format='video/mp4', autoplay=True)
-
-                st.session_state.start_process_button_clicked = False
-                st.success('Sucessfully Processed!')
         
+        if st.session_state.start_process_button_clicked and source:
+            panel = st.empty()
+            if st.session_state.algortihm == 'Optical Flow':
+                
+                optical_flow = OpticalFlowTracker(video_path=source, resolution=resolution)
+                optical_flow.process_video(objectTrackingPanel, segmentationPanel)
+            elif st.session_state.algortihm == 'YOLOv8':
+                with objectTrackingPanel:
+                    save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
+                    # if save_path:
+                        # panel.video(data=save_path, format='video/mp4', autoplay=True)
+            st.session_state.start_process_button_clicked = False
+            st.success('Sucessfully Processed!')
+    
         
         # Clean up the temporary file after processing
         if source:

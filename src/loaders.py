@@ -1,11 +1,11 @@
 import streamlit as st
 from ultralytics import YOLO
 import logging
-
+from typing import Tuple
 
 
 @st.cache_resource(show_spinner=False)
-def load_yolov8(model_path="models/yolov8n.pt"):
+def load_yolo_model(model_path="models/yolov8n.pt") -> Tuple[YOLO, YOLO]:
     """
     Load YOLO models and cache them to optimize loading times.
 
@@ -19,7 +19,8 @@ def load_yolov8(model_path="models/yolov8n.pt"):
     logger = logging.getLogger(__name__)
     try:
         # Load the YOLO models
-        model1 = YOLO(model=model_path, task="detect")
+        modelDetect = YOLO(model=model_path + "yolov10n.pt", task="detect")
+        modelSegment = YOLO(model=model_path + "yolov8n-seg.pt", task="segment")
     except FileNotFoundError as e:
         logger.error("Model file not found: %s", e)
         raise
@@ -30,4 +31,5 @@ def load_yolov8(model_path="models/yolov8n.pt"):
         logger.error("An unexpected error occurred: %s", e)
         raise
 
-    return model1
+    return modelDetect, modelSegment
+
