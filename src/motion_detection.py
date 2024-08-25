@@ -80,12 +80,7 @@ def optical_flow_motion_detection(
             
             # Compute the magnitude of motion vectors
             motion_vectors = good_next_pts - good_prev_pts
-            magnitude = np.sqrt(motion_vectors[:, 0]**2 + motion_vectors[:, 1]**2)
-            avg_magnitude = np.mean(magnitude)
-
-            logging.info(f"Motion vectors Shape: {motion_vectors.shape}")
-            logging.info(f"Magnitude of motion vectors: {magnitude.shape}")
-            
+            magnitude = np.sqrt(motion_vectors[:, 0]**2 + motion_vectors[:, 1]**2)         
             
             return any(magnitude > threshold), motion_vectors, magnitude, good_next_pts, good_prev_pts               # Motion is detected if the average magnitude exceeds the threshold
         else:
@@ -113,8 +108,8 @@ def visualize_motion_vectors(prev_frame, curr_frame, prev_pts, next_pts, magnitu
     try:
         color_frame = prev_frame.copy()
         for (x0, y0), (x1, y1), magnitude in zip(prev_pts, next_pts, magnitudes):
-            if magnitude > 1.0:
-                cv2.arrowedLine(img=color_frame, pt1=(int(x0), int(y0)), pt2=(int(x1), int(y1)), color=(0, 255, 0), thickness=2, tipLength=5, line_type=cv2.LINE_4)
+            if magnitude > 1.5:
+                cv2.arrowedLine(img=color_frame, pt1=(int(x0), int(y0)), pt2=(int(x1), int(y1)), color=(0, 255, 0), thickness=3, tipLength=0.5, line_type=cv2.LINE_4)
         return color_frame
     except Exception as e:
         logging.error(f"Error visualizing motion vectors: {e}")
