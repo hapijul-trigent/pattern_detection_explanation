@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import streamlit as st
 import logging
-import threading
+import time
 from collections import defaultdict
 
 
@@ -33,14 +33,10 @@ def run_yolo_tracker(filename, model, file_index, resolution) -> str:
         stream_panel = st.empty()
         track_history = defaultdict(lambda: [])
 
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        save_path = f'outputs/processed/new.mp4'
-        video_writer = cv2.VideoWriter(save_path, fourcc, 24, resolution)
-
-        if not video_writer.isOpened():
-            print("Error: Could not open video file for writing.")
-        
+        delay = 30
+        dynamic_delay = 30
         while video.isOpened():
+            start_time = time.time()
             success, frame = video.read()
             if not success:
                 logger.warning(f"Failed to read frame from {filename}.")
@@ -49,7 +45,7 @@ def run_yolo_tracker(filename, model, file_index, resolution) -> str:
             try:
                 # frame = cv2.resize(frame, resolution)
                 print(frame.shape)
-                results = model.track(frame, persist=True)
+                results = model.track(frame, persist=True, conf=0.25)
                 if not results or not results[0].boxes:
                     logger.warning("No tracking results found.")
                     continue
@@ -63,27 +59,29 @@ def run_yolo_tracker(filename, model, file_index, resolution) -> str:
                     x, y, w, h = box
                     track = track_history[track_id]
                     track.append((float(x), float(y)))
-                    if len(track) > 24:
-                        track.pop(0)
+                    # if len(track) > 24:
+                        # track.pop(0)
                     points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
-                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=16)
+                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
 
                     if points.shape[0] > 2:
-                        cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=24, line_type=cv2.LINE_AA, tipLength=0.3)
-                    
+                        cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=16, line_type=cv2.LINE_AA, tipLength=0.3)
+
                 if isinstance(annotated_frame, np.ndarray):
                     # Stream
+                    end_time = time.time()
+                    processing_time = (end_time - start_time) * 1000
+                    dynamic_delay = max(1, delay - int(processing_time))
                     stream_panel.image(annotated_frame, caption=f"Preview_Stream_{file_index}", channels="BGR")
-                    video_writer.write(annotated_frame)
 
                 else:
                     logger.error("Error converting frame to numpy array.")
             except Exception as e:
                 logger.error(f"Error processing frame: {e}")
-
+            print("Delay::::", dynamic_delay/100.0)
+            time.sleep(dynamic_delay/100.0)
         # Release video sources
         video.release()
-        video_writer.release()
         logger.info(f"Finished processing video: {filename}")
         return filename
     except Exception as e:

@@ -60,6 +60,7 @@ def capture_frames(source: str, resolution):
         ksize=(3,3), sigmaX=0
     )
     while ret:
+        start_time = time.time()
         ret, frame = cap.read()
         if not ret:
             break
@@ -69,7 +70,7 @@ def capture_frames(source: str, resolution):
             ksize=(3,3), sigmaX=0
         )
 
-        time.sleep(0.001)
+        time.sleep(0.04)
         yield ret, previous_frame, frame
         previous_frame = frame
 

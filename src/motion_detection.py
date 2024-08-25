@@ -126,3 +126,65 @@ def visualize_motion_vectors(prev_frame, curr_frame, prev_pts, next_pts, magnitu
 # vframe = visualize_motion_vectors(prev_frame_c, curr_frame, good_prev_pts, good_next_pts)
 # print(vframe.shape)
 # plt.imsave('vframe.jpg', vframe)
+import cv2
+import numpy as np
+import time
+
+class OpticalFlowTracker:
+    def __init__(self, max_frames=30):
+        self.max_frames = max_frames
+        self.prev_frame = None
+        self.points_to_track = None
+
+    def initialize_tracker(self, frame):
+        # Convert frame to grayscale
+        self.prev_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Initialize points to track
+        self.points_to_track = cv2.goodFeaturesToTrack(self.prev_frame, maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
+    
+    def track_motion(self, frame):
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        new_points, status, error = cv2.calcOpticalFlowPyrLK(self.prev_frame, gray_frame, self.points_to_track, None)
+        good_new = new_points[status == 1]
+        good_old = self.points_to_track[status == 1]
+
+        frame_with_tracks = frame.copy()
+        for i, (new, old) in enumerate(zip(good_new, good_old)):
+            a, b = new.ravel()
+            c, d = old.ravel()
+            # Convert coordinates to integers
+            a, b, c, d = int(a), int(b), int(c), int(d)
+            frame_with_tracks = cv2.line(frame_with_tracks, (a, b), (c, d), (0, 255, 0), 2)
+            frame_with_tracks = cv2.circle(frame_with_tracks, (a, b), 5, (0, 0, 255), -1)
+        
+        self.prev_frame = gray_frame.copy()
+        self.points_to_track = good_new.reshape(-1, 1, 2)
+        
+        return frame_with_tracks
+
+def track_with_opticalFlow(video_path, resolution, panel):
+    cap = cv2.VideoCapture(video_path)
+    tracker = OpticalFlowTracker(max_frames=30)
+    delay = 30  # Initial delay in milliseconds
+
+    while cap.isOpened():
+        start_time = time.time()
+        
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        if tracker.prev_frame is None:
+            tracker.initialize_tracker(frame)
+        else:
+            frame_with_motion = tracker.track_motion(frame)
+            panel.image('Optical Flow Tracking', frame_with_motion)
+        
+        end_time = time.time()
+        processing_time = (end_time - start_time) * 1000  # Convert to milliseconds
+        
+        dynamic_delay = max(1, delay - int(processing_time))
+        
+    cap.release()
+
+

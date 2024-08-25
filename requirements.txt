@@ -6,4 +6,3 @@ pillow
 numpy
 pytest
 ultralytics
-deep-sort-realtime

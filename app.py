@@ -9,7 +9,7 @@ import time
 import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
-from src.motion_detection  import visualize_motion_vectors
+from src.motion_detection  import visualize_motion_vectors, track_with_opticalFlow
 from src.movement_tracker import run_yolo_tracker
 from src.loaders import load_yolov8
 from src.utils import (
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Set main panel
 favicon = Image.open("static/images/Trigent_Logo.png")
 st.set_page_config(
-    page_title="Entities in Clinical Trial | Trigent AXLR8 Labs",
+    page_title="Movement Tracker | Trigent AXLR8 Labs",
     page_icon=favicon,
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -81,7 +81,7 @@ def main():
     get_or_create_session_state_variable("processed", default_value=False)
 
     # Models
-    yolov8 = load_yolov8(model_path="models/yolov8n.pt")
+    yolov8 = load_yolov8(model_path="models/yolov10n.pt")
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -91,7 +91,7 @@ def main():
     # Config Panel
     with configPanel:
         # Upload video
-        video_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
+        video_file = st.file_uploader("Upload a video", type=["mp4",])
 
         # button to start processing
         if not st.session_state.processed:
@@ -126,20 +126,21 @@ def main():
             if st.session_state.start_process_button_clicked and source:
                 panel = st.empty()
                 if st.session_state.algortihm == 'Optical Flow':
-                    for ret, previous_frame, curr_frame in capture_frames(source=source, resolution=resolution):
+                    # for ret, previous_frame, curr_frame in capture_frames(source=source, resolution=resolution):
                         
-                        motion_detected, motion_vectors, magnitudes, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
-                        if motion_detected:
+                    #     motion_detected, motion_vectors, magnitudes, good_next_pts, good_prev_pts = process_frame(previous_frame, curr_frame)
+                    #     if motion_detected:
                                 
-                            vframe = visualize_motion_vectors(
-                                prev_frame=previous_frame, curr_frame=curr_frame, 
-                                prev_pts=good_prev_pts, next_pts=good_next_pts, 
-                                magnitudes=magnitudes
-                            )
-                            stream_frames(vframe, panel)
-                            continue
-                        stream_frames(curr_frame, panel)
-                        previous_frame = curr_frame
+                    #         vframe = visualize_motion_vectors(
+                    #             prev_frame=previous_frame, curr_frame=curr_frame, 
+                    #             prev_pts=good_prev_pts, next_pts=good_next_pts, 
+                    #             magnitudes=magnitudes
+                    #         )
+                    #         stream_frames(vframe, panel)
+                    #         continue
+                    #     stream_frames(curr_frame, panel)
+                    #     previous_frame = curr_frame
+                    track_with_opticalFlow(video_path=source, resolution=resolution, panel=panel)
                 elif st.session_state.algortihm == 'YOLOv8':
                     
                     save_path = run_yolo_tracker(filename=source, model=yolov8, file_index=1, resolution=resolution)
