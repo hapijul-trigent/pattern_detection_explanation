@@ -62,8 +62,8 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
                     x, y, w, h = box
                     track = track_history[track_id]
                     track.append((float(x), float(y)))
-                    # if len(track) > 24:
-                        # track.pop(0)
+                    if len(track) > 30:
+                        track.pop(0)
                     points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
                     cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
                     # cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
