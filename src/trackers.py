@@ -35,12 +35,12 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
         fps = video.get(cv2.CAP_PROP_FPS)
         if fps == 0:
             fps = 30
-
+        frame_time = 1.0 / fps
         stream_panel = st.empty()
         track_history = defaultdict(lambda: [])
 
         while video.isOpened():
-            start_time = time.time()
+            start = time.time()
             success, frame = video.read()
             if not success:
                 logger.warning(f"Failed to read frame from {filename}.")
@@ -70,18 +70,17 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
 
                     if points.shape[0] > 2:
                         cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=16, line_type=cv2.LINE_AA, tipLength=0.3)
-
+                elapsed_time = time.time() - start
+                fps = 1 / elapsed_time
                 if isinstance(annotated_frame, np.ndarray):
                     # Stream
                     stream_panel.image(annotated_frame, caption=f"Preview Tracking", channels="BGR")
 
                 else:
                     logger.error("Error converting frame to numpy array.")
-                elapsed_time = time.time() - start_time
-                frame_time = 1.0 / fps
                 delay = max(0, frame_time - elapsed_time)
-                print("DELAY:::", delay)
-                time.sleep(delay)
+                if delay > 0: time.sleep(delay)
+                else: time.sleep(0.03); logger.warning('Slow Processing')
             except Exception as e:
                 logger.error(f"Error processing frame: {e}")
         # Release video sources
@@ -94,14 +93,14 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
 
 
 
-
+# Optical FLow Tracker
 class OpticalFlowTracker:
 
     def __init__(self, video_path, resolution=None):
         self.video_path = video_path
         self.resolution = resolution
-        self.trajectory_len = 40
-        self.detect_interval = 5
+        self.trajectory_len = 30
+        self.detect_interval = 3
         self.trajectories = []
         self.frame_idx = 0
         self.prev_gray = None
@@ -134,7 +133,7 @@ class OpticalFlowTracker:
         fps = video.get(cv2.CAP_PROP_FPS)
         if fps == 0:
             fps = 30
-        
+        frame_time = 1.0 / fps
         if self.resolution:
             width, height = self.resolution
             video.set(cv2.CAP_PROP_FRAME_WIDTH, width)
@@ -174,7 +173,16 @@ class OpticalFlowTracker:
                         cv2.circle(img, (int(x), int(y)), 2, (0, 0, 255), -1)
 
                     self.trajectories = new_trajectories
-                    cv2.polylines(img, [np.int32(trajectory) for trajectory in self.trajectories], False, (240,0,255), thickness=2)
+                    for trajectory in self.trajectories:
+                        cv2.polylines(img, [np.int32(trajectory)], False, (240, 0, 255), thickness=1)
+                        
+                        # Circling on both points
+                        if len(trajectory) > 0:
+                            start_point = tuple(np.int32(trajectory[0]))
+                            cv2.circle(img, start_point, 5, (0, 255, 0), -1)
+                            end_point = tuple(np.int32(trajectory[-1]))
+                            cv2.circle(img, end_point, 5, (0, 0, 255), -1)
+                    
                     cv2.putText(img, 'track count: %d' % len(self.trajectories), (20, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 255), 2)
                 except Exception as e:
                     logger.error(f"Error in optical flow computation: {e}")
@@ -186,6 +194,8 @@ class OpticalFlowTracker:
 
                     for x, y in [np.int32(trajectory[-1]) for trajectory in self.trajectories]:
                         cv2.circle(mask, (x, y), 5, 0, -1)
+                        
+
 
                     p = cv2.goodFeaturesToTrack(frame_gray, mask=mask, **self.feature_params)
                     if p is not None:
@@ -197,22 +207,19 @@ class OpticalFlowTracker:
             self.frame_idx += 1
             self.prev_gray = frame_gray
 
-            end = time.time()
-            fps = 1 / (end - start)
-            cv2.putText(img, f"{fps:.2f} FPS", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (240,0,255), 2)
-
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             mask_rgb = cv2.cvtColor(mask, cv2.COLOR_GRAY2RGB) if 'mask' in locals() else np.zeros_like(img_rgb)
 
+            elapsed_time = time.time() - start
+            fps = 1 / elapsed_time
+            cv2.putText(img, f"{fps:.2f} FPS", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (240,0,255), 2)
+
             frame_placeholder.image(img_rgb, caption='Optical Flow Tracking', channels='RGB', use_column_width=True)
             mask_placeholder.image(mask_rgb, caption='Feature Pattern', channels='RGB', use_column_width=True)
-            
-            elapsed_time = time.time() - start
-            frame_time = 1.0 / fps
             delay = max(0, frame_time - elapsed_time)
             print("DELAY:::", delay)
-            time.sleep(delay)
-            time.sleep(0.41)
+            if delay > 0: time.sleep(delay)
+            else: time.sleep(0.03); logger.warning('Slow Processing')
 
         video.release()
         logger.info("Video processing completed.")

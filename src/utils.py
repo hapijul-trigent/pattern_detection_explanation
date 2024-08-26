@@ -112,7 +112,7 @@ def select_resolution():
         "8K": (7680, 4320),
     }
 
-    resolution_choice = st.selectbox("Select Resolution", list(resolution_options.keys()), index=0)
+    resolution_choice = st.selectbox("Select Resolution", list(resolution_options.keys()), index=0, disabled=st.session_state.start_process_button_clicked)
     resolution = resolution_options[resolution_choice]
     
     return resolution_choice, resolution

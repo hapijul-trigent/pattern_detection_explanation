@@ -91,15 +91,14 @@ def main():
     # Config Panel
     with configPanel:
         # Upload video
-        video_file = st.file_uploader("Upload a video", type=["mp4",])
+        video_file = st.file_uploader("Upload a video", type=["mp4",], disabled=st.session_state.start_process_button_clicked)
             
 
         if video_file is not None:
             source = create_temp_video_file(video_file=video_file)
 
         if video_file:
-
-            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOv8'])
+            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOv8'], disabled=st.session_state.start_process_button_clicked)
             resolution_choice, resolution = select_resolution()
             
         # button to start processing
@@ -117,7 +116,8 @@ def main():
     # PreviewPanel
     yolov8_thread = None
     with previewPanel:
-        st.title(f"Motion Tracking- {st.session_state.algortihm}")
+        if not st.session_state.start_process_button_clicked: st.title(f"Motion Tracking")
+        else: st.title(f"Motion Tracking- {st.session_state.algortihm}")
         # two more columns named objectTrackingPanel, segmentationPanel
         objectTrackingPanel, segmentationPanel = st.columns([1, 1], gap='large')
 
@@ -134,7 +134,6 @@ def main():
                     # if save_path:
                         # panel.video(data=save_path, format='video/mp4', autoplay=True)
             st.session_state.start_process_button_clicked = False
-            st.success('Sucessfully Processed!')
     
         
         # Clean up the temporary file after processing
