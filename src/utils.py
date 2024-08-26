@@ -102,7 +102,6 @@ def select_resolution():
     Displays a dropdown menu for selecting video resolution and returns the selected resolution.
     """
     resolution_options = {
-        "240p": (426, 240),
         "360p": (640, 360),
         "480p": (854, 480),
         "720p": (1280, 720),

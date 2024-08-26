@@ -69,9 +69,14 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
                     # cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
 
                     if points.shape[0] > 2:
-                        cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=16, line_type=cv2.LINE_AA, tipLength=0.3)
+                        # cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=16, line_type=cv2.LINE_AA, tipLength=0.3)
+                        start_point = tuple(np.int32(points[0, 0]))
+                        cv2.circle(annotated_frame, start_point, 5, (0, 255, 0), -1)
+                        end_point = tuple(np.int32(points[-1, 0]))
+                        cv2.circle(annotated_frame, end_point, 5, (0, 0, 255), -1)
                 elapsed_time = time.time() - start
                 fps = 1 / elapsed_time
+                frame_time = 1.0 / fps
                 if isinstance(annotated_frame, np.ndarray):
                     # Stream
                     stream_panel.image(annotated_frame, caption=f"Preview Tracking", channels="BGR")
@@ -80,7 +85,7 @@ def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution
                     logger.error("Error converting frame to numpy array.")
                 delay = max(0, frame_time - elapsed_time)
                 if delay > 0: time.sleep(delay)
-                else: time.sleep(0.03); logger.warning('Slow Processing')
+                else: time.sleep(0.04); logger.warning('Slow Processing')
             except Exception as e:
                 logger.error(f"Error processing frame: {e}")
         # Release video sources
@@ -212,6 +217,7 @@ class OpticalFlowTracker:
 
             elapsed_time = time.time() - start
             fps = 1 / elapsed_time
+            frame_time = 1.0 / fps
             cv2.putText(img, f"{fps:.2f} FPS", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (240,0,255), 2)
 
             frame_placeholder.image(img_rgb, caption='Optical Flow Tracking', channels='RGB', use_column_width=True)

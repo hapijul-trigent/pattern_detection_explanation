@@ -45,7 +45,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 # Main Page Title and Caption
-st.title("Smart Motion Insights")
+st.title("Pattern Detection (next pattern prediction) and Explanation for Cognitive Learning")
 st.caption("Explore advanced motion analysis with our Streamlit app. Detect, track, and predict movement patterns in images and videos, and gain clear insights into predictions. Ideal for educators, researchers, and motion analysis enthusiasts")
 st.divider()
 
@@ -113,6 +113,7 @@ def main():
                     st.button("Stop", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
         else:
             st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=False), disabled=True)
+    
     # PreviewPanel
     yolov8_thread = None
     with previewPanel:
@@ -143,3 +144,40 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Footer with Font Awesome icons
+    footer_html = """
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <div style="text-align: center; margin-right: 10%;">
+        <p>
+            &copy; 2024, Trigent Software Inc. All rights reserved. |
+            <a href="https://www.linkedin.com/company/trigent-software" target="_blank" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a> |
+            <a href="https://www.twitter.com/trigent-software" target="_blank" aria-label="Twitter"><i class="fab fa-twitter"></i></a> |
+            <a href="https://www.youtube.com/trigent-software" target="_blank" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+        </p>
+    </div>
+    """
+
+    # Custom CSS to make the footer sticky
+    footer_css = """
+    <style>
+    .footer {
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: white;
+        color: black;
+        text-align: center;
+    }
+    [data-testid="stSidebarNavItems"] {
+        max-height: 100%!important;
+    }
+    </style>
+    """
+
+    # Combining the HTML and CSS
+    footer = f"{footer_css}<div class='footer'>{footer_html}</div>"
+
+    # Rendering the footer
+    st.markdown(footer, unsafe_allow_html=True)
