@@ -7,7 +7,7 @@ from streamlit.delta_generator import DeltaGenerator
 import logging
 import streamlit as st
 import time
-from .motion_detection import optical_flow_motion_detection
+from .detection import optical_flow_motion_detection
 
 
 def create_temp_video_file(video_file: BinaryIO, temp_dir: str = 'outputs/temp') -> str:

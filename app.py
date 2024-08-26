@@ -9,7 +9,7 @@ import time
 import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
-from src.motion_detection  import visualize_motion_vectors, optical_flow_motion_detection
+from src.detection  import visualize_motion_vectors, optical_flow_motion_detection
 from src.trackers import run_yolo_tracker, OpticalFlowTracker
 from src.loaders import load_yolo_model
 from src.utils import (
