@@ -124,11 +124,12 @@ class YOLOTracker:
             
             results = self.modelDetect(frame)[0]
             detections = sv.Detections.from_ultralytics(results)
+            # print(detections)
+            # print(dir(detections))
             detections = self.tracker.update_with_detections(detections)
 
-            # Debug: Print the detections object to understand its structure
-            print(detections)
-            print(dir(detections))
+            if detections.empty():
+                return frame, frame
 
             # Access the attributes based on your `sv.Detections` object structure
             # boxes = detections.boxes.cpu().numpy()
@@ -255,7 +256,8 @@ class YOLOTracker:
                 delay = max(0, frame_time - elapsed_time)
                 # time.sleep(max(0.01, delay))
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord('q') or st.session_state.stop_process_button_clicked:
+                    self.logger.info('Stop Button pressed by user.')
                     break
 
             video.release()
