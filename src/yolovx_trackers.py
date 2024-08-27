@@ -113,13 +113,15 @@ class YOLOTracker:
         self.logger = logging.getLogger(__name__)
         self.track_history = defaultdict(list)
         self.tracker = sv.ByteTrack()
-        self.box_annotator = sv.BoxAnnotator()
+        self.box_annotator = sv.BoxCornerAnnotator()
         self.label_annotator = sv.LabelAnnotator()
-        self.tracer = sv.TraceAnnotator()
+        self.tracer = sv.TraceAnnotator(thickness=3)
+        self.heat_map_annotator = sv.HeatMapAnnotator(radius=30)
 
 
     def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict[int, List[Tuple[float, float]]]]:
         try:
+            
             results = self.modelDetect(frame)[0]
             detections = sv.Detections.from_ultralytics(results)
             detections = self.tracker.update_with_detections(detections)
@@ -144,10 +146,19 @@ class YOLOTracker:
                 in zip(detections.class_id, detections.tracker_id)
             ]
 
+            labels_for_heatmap = [
+                f"#{tracker_id}"
+                for tracker_id
+                in detections.tracker_id
+            ]
+
             # Annotate the frame
+            annotated_frame_heat = self.label_annotator.annotate(scene=frame.copy(), detections=detections, labels=labels_for_heatmap)
+            heat_map_frame = self.heat_map_annotator.annotate(scene=annotated_frame_heat, detections=detections)
             annotated_frame = self.box_annotator.annotate(scene=frame.copy(), detections=detections)
             annotated_frame = self.label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)
             annotated_frame = self.tracer.annotate( annotated_frame, detections=detections)
+
             
 
 
@@ -162,13 +173,14 @@ class YOLOTracker:
             #         track.pop(0)
             #     trajectory_data[tracker_id] = track
 
-            return annotated_frame #, bbox_data, scores, class_ids, tracker_ids, trajectory_data
+            return annotated_frame, heat_map_frame #, bbox_data, scores, class_ids, tracker_ids, trajectory_data
         except Exception as e:
             self.logger.error(f"Error processing frame: {e}", exc_info=True)
             return None #, None, None, None, None, None
 
-    def process_video_with_sink(self, filename: str, stream_panel, output_filename: str = None) -> str:
+    def process_video_with_sink(self, filename: str, stream_panels, output_filename: str = None) -> str:
         try:
+            annotation_panel, heat_map_panel = stream_panels
             ### video config
             video_info = sv.VideoInfo.from_video_path(video_path=filename)
             frames_generator = sv.get_video_frames_generator(
@@ -182,7 +194,8 @@ class YOLOTracker:
                     annotated_frame = self.process_frame(frame)
 
                     if isinstance(annotated_frame, np.ndarray):
-                        stream_panel.image(annotated_frame, channels="BGR", use_column_width=True)
+                        annotation_panel.image(annotated_frame, channels="BGR", use_column_width=True)
+                        # heat_map_panel.image(an, channels="BGR", use_column_width=True)
                         sink.write_frame(frame=annotated_frame)
                     else:
                         self.logger.error("Error processing frame.")
@@ -200,8 +213,13 @@ class YOLOTracker:
             self.logger.error(f"An error occurred: {e}", exc_info=True)
             return None
 
-    def process_video(self, filename: str, stream_panel, output_filename: str = None) -> str:
+    def process_video(self, filename: str, stream_panels, output_filename: str = None) -> str:
+        self.tracker.reset()
         try:
+            # Setup Panels
+            with stream_panels[0]: annotation_panel = st.empty()
+            with stream_panels[1]:  heat_map_panel = st.empty()
+
             video = cv2.VideoCapture(filename)
             if not video.isOpened():
                 raise ValueError(f"Error opening video file or stream: {filename}")
@@ -223,12 +241,13 @@ class YOLOTracker:
                     self.logger.warning(f"Failed to read frame from {filename}.")
                     break
 
-                annotated_frame = self.process_frame(frame)
+                annotated_frame, heat_map_frame  = self.process_frame(frame)
 
                 if isinstance(annotated_frame, np.ndarray):
                     if output_filename:
                         out_video.write(annotated_frame)
-                    stream_panel.image(annotated_frame, channels="BGR", use_column_width=True)
+                    annotation_panel.image(annotated_frame, channels="BGR", use_column_width=True, caption='Annotated Traces')
+                    heat_map_panel.image(heat_map_frame, channels="BGR", use_column_width=True, caption='Heat Map Traces')
                 else:
                     self.logger.error("Error processing frame.")
 
