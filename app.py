@@ -10,7 +10,8 @@ import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
 from src.detection  import visualize_motion_vectors, optical_flow_motion_detection
-from src.trackers import run_yolo_tracker, OpticalFlowTracker
+from src.yolovx_trackers import run_yolo_tracker, YOLOTracker
+from src.optical_flow_tracker import OpticalFlowTracker
 from src.loaders import load_yolo_model
 from src.utils import (
     get_or_create_session_state_variable, 
@@ -82,6 +83,7 @@ def main():
 
     # Models
     modelDetect, modelSegment = load_yolo_model(model_path="models/")
+    yolo_tracker = YOLOTracker(modelDetect=modelDetect, modelSegment=modelSegment)
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -98,7 +100,7 @@ def main():
             source = create_temp_video_file(video_file=video_file)
 
         if video_file:
-            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOv8'], disabled=st.session_state.start_process_button_clicked)
+            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOvX'], disabled=st.session_state.start_process_button_clicked)
             resolution_choice, resolution = select_resolution()
             
         # button to start processing
@@ -117,8 +119,7 @@ def main():
     # PreviewPanel
     yolov8_thread = None
     with previewPanel:
-        if not st.session_state.start_process_button_clicked: st.title(f"Motion Tracking")
-        else: st.title(f"Motion Tracking- {st.session_state.algortihm}")
+        if st.session_state.start_process_button_clicked: st.title(f"Motion Tracking- {st.session_state.algortihm}")
         # two more columns named objectTrackingPanel, segmentationPanel
         objectTrackingPanel, segmentationPanel = st.columns([1, 1], gap='large')
 
@@ -131,9 +132,10 @@ def main():
                 optical_flow.process_video(objectTrackingPanel, segmentationPanel)
             elif st.session_state.algortihm == 'YOLOv8':
                 with objectTrackingPanel:
-                    save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
+                    # save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
+                    save_path = yolo_tracker.process_video(filename=source, stream_panel=panel, output_filename='out.mp4')
                     # if save_path:
-                        # panel.video(data=save_path, format='video/mp4', autoplay=True)
+                    #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
             st.session_state.start_process_button_clicked = False
     
         
