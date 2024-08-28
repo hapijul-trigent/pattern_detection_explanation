@@ -84,6 +84,7 @@ def main():
     get_or_create_session_state_variable("start_process_button_clicked", default_value=False)
     get_or_create_session_state_variable("processed", default_value=False)
     get_or_create_session_state_variable("stop_process_button_clicked", default_value=False)
+    get_or_create_session_state_variable("classes", default_value=['person', 'white truck'])
 
     # Models
     device='cuda' if cuda.is_available() else 'cpu'
@@ -92,9 +93,7 @@ def main():
     yolo_tracker = YOLOTracker(modelDetect=model10n)
 
     modelYoloWorld = load_yolo_world_model(model_name='yolov8s-world.pt')
-    modelYoloWorld.to(device)
-    modelYoloWorld.set_classes(['white truck', 'white car'])
-    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld)
+
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -122,7 +121,9 @@ def main():
         if video_file:
             st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Track Every Movement', 'Track Specific Objects Movement', 'Track based on Prompt'], disabled=st.session_state.start_process_button_clicked)
             resolution_choice, resolution = select_resolution()
-            
+            if st.session_state.algortihm == 'Track based on Prompt':
+                st.session_state.update(classes=str(st.text_input(label='Enter Objects you want to track: ', placeholder='format as comma sperated: white truck, black car, bycycle....')).split(','))
+                print(st.session_state.classes)
         # button to start processing
         if not st.session_state.processed and video_file:
             if not st.session_state.start_process_button_clicked:
@@ -158,7 +159,10 @@ def main():
                     # if save_path:
                     #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
             elif st.session_state.algortihm == 'Track based on Prompt':
-                yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
+                    modelYoloWorld.to(device)
+                    modelYoloWorld.set_classes(st.session_state.classes)
+                    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld)
+                    yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
             else:
                 pass
             st.session_state.start_process_button_clicked = False
