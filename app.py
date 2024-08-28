@@ -88,11 +88,12 @@ def main():
     # Models
     device='cuda' if cuda.is_available() else 'cpu'
     model10n = load_yolo_model(model_name='yolov10n.pt')
+    model10n.to(device)
     yolo_tracker = YOLOTracker(modelDetect=model10n)
 
     modelYoloWorld = load_yolo_world_model(model_name='yolov8s-world.pt')
     modelYoloWorld.to(device)
-    modelYoloWorld.set_classes(['person',])
+    modelYoloWorld.set_classes(['white truck', 'white car'])
     yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld)
 
     # configPanel, previewPanel
