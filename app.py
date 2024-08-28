@@ -12,7 +12,8 @@ from typing import BinaryIO
 from src.detection  import visualize_motion_vectors, optical_flow_motion_detection
 from src.yolovx_trackers import run_yolo_tracker, YOLOTracker
 from src.optical_flow_tracker import OpticalFlowTracker
-from src.loaders import load_yolo_model
+from src.yolo_world_tracker import YOLOWorldTracker
+from src.loaders import load_yolo_model, load_yolo_world_model
 from src.utils import (
     get_or_create_session_state_variable, 
     create_temp_video_file, 
@@ -22,6 +23,7 @@ from src.utils import (
     select_resolution
 )
 from streamlit_webrtc import webrtc, webrtc_streamer, WebRtcMode
+from torch import cuda
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -78,14 +80,20 @@ def main():
     get_or_create_session_state_variable("avg_magnitude", 0.0)
     get_or_create_session_state_variable("good_next_pts", None)
     get_or_create_session_state_variable("good_prev_pts", None)
-    get_or_create_session_state_variable("algortihm", default_value='Optical Flow')
+    get_or_create_session_state_variable("algortihm", default_value='Track Every Movement')
     get_or_create_session_state_variable("start_process_button_clicked", default_value=False)
     get_or_create_session_state_variable("processed", default_value=False)
     get_or_create_session_state_variable("stop_process_button_clicked", default_value=False)
 
     # Models
-    modelDetect, modelSegment = load_yolo_model(model_path="models/")
-    yolo_tracker = YOLOTracker(modelDetect=modelDetect, modelSegment=modelSegment)
+    device='cuda' if cuda.is_available() else 'cpu'
+    model10n = load_yolo_model(model_name='yolov10n.pt')
+    yolo_tracker = YOLOTracker(modelDetect=model10n)
+
+    modelYoloWorld = load_yolo_world_model(model_name='yolov8s-world.pt')
+    modelYoloWorld.to(device)
+    modelYoloWorld.set_classes(['person',])
+    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld)
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -111,7 +119,7 @@ def main():
         if video_file is not None:
             source = create_temp_video_file(video_file=video_file)
         if video_file:
-            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Optical Flow', 'YOLOvX'], disabled=st.session_state.start_process_button_clicked)
+            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Track Every Movement', 'Track Specific Objects Movement', 'Track based on Prompt'], disabled=st.session_state.start_process_button_clicked)
             resolution_choice, resolution = select_resolution()
             
         # button to start processing
@@ -138,16 +146,20 @@ def main():
         
         if st.session_state.start_process_button_clicked and source:
             # panel = st.empty()
-            if st.session_state.algortihm == 'Optical Flow':
+            if st.session_state.algortihm == 'Track Every Movement':
                 
                 optical_flow = OpticalFlowTracker(video_path=source, resolution=resolution)
                 optical_flow.process_video(objectTrackingPanel, segmentationPanel)
-            elif st.session_state.algortihm == 'YOLOvX':
+            elif st.session_state.algortihm == 'Track Specific Objects Movement':
                 with objectTrackingPanel:
                     # save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
                     save_path = yolo_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
                     # if save_path:
                     #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
+            elif st.session_state.algortihm == 'Track based on Prompt':
+                yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
+            else:
+                pass
             st.session_state.start_process_button_clicked = False
     
         
