@@ -5,110 +5,12 @@ import logging
 import time
 from collections import defaultdict
 import supervision as sv
-
-
-### YOLOv8
-def run_yolo_tracker(filename, modelDetect, modelSegment, file_index, resolution) -> str:
-    """
-    Runs a video file or webcam stream concurrently with the YOLOv8 model using threading.
-
-    Captures video frames from a given file or camera source and utilizes the YOLOv8 model for object
-    tracking. Runs in its own thread for concurrent processing.
-
-    Args:
-        filename (str): The path to the video file or the identifier for the webcam/external camera source.
-        model (obj): The YOLOv8 model object.
-        file_index (int): An index to uniquely identify the file being processed, used for display purposes.
-    """
-    logger = logging.getLogger(__name__)
-    try:
-        # Open the video file or stream
-        video = cv2.VideoCapture(filename)
-        if not video.isOpened():
-            raise ValueError(f"Error opening video file or stream: {filename}")
-        
-        # if resolution:
-        #     width, height = resolution
-        #     video.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        #     video.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
-        fps = video.get(cv2.CAP_PROP_FPS)
-        if fps == 0:
-            fps = 30
-        frame_time = 1.0 / fps
-        stream_panel = st.empty()
-        track_history = defaultdict(lambda: [])
-
-        while video.isOpened():
-            start = time.time()
-            success, frame = video.read()
-            if not success:
-                logger.warning(f"Failed to read frame from {filename}.")
-                break
-
-            try:
-                results = modelDetect.track(frame, persist=True, conf=0.15)
-                # results_seg = modelDetect.track(modelSegment, persist=True, conf=0.15)
-                if not results or not results[0].boxes:
-                    logger.warning("No tracking results found.")
-                    continue
-
-                boxes = results[0].boxes.xywh.cpu()
-                track_ids = results[0].boxes.id.int().cpu().tolist()
-                annotated_frame = results[0].plot()
-                # annotated_frame = frame
-
-                for box, track_id in zip(boxes, track_ids):
-                    x, y, w, h = box
-                    track = track_history[track_id]
-                    track.append((float(x), float(y)))
-                    if len(track) > 30:
-                        track.pop(0)
-                    points = np.hstack(track).astype(np.int32).reshape((-1, 1, 2))
-                    cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
-                    # cv2.polylines(annotated_frame, [points], isClosed=False, color=(57, 255, 20), thickness=8)
-
-                    if points.shape[0] > 2:
-                        # cv2.arrowedLine(annotated_frame, points[-2, 0], points[-1, 0], color=(0, 92, 255), thickness=16, line_type=cv2.LINE_AA, tipLength=0.3)
-                        start_point = tuple(np.int32(points[0, 0]))
-                        cv2.circle(annotated_frame, start_point, 5, (255, 0, 0), -1)
-                        end_point = tuple(np.int32(points[-1, 0]))
-                        cv2.circle(annotated_frame, end_point, 5, (0, 0, 255), -1)
-                elapsed_time = time.time() - start
-                fps = 1 / elapsed_time
-                frame_time = 1.0 / fps
-                if isinstance(annotated_frame, np.ndarray):
-                    # Stream
-                    stream_panel.image(annotated_frame, caption=f"Preview Tracking", channels="BGR")
-
-                else:
-                    logger.error("Error converting frame to numpy array.")
-                delay = max(0, frame_time - elapsed_time)
-                if delay > 0: time.sleep(delay)
-                else: time.sleep(0.04); logger.warning('Slow Processing')
-            except Exception as e:
-                logger.error(f"Error processing frame: {e}")
-        # Release video sources
-        video.release()
-        logger.info(f"Finished processing video: {filename}")
-        return filename
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        return None
-    
-
-# YOLOTracker
-import logging
-import time
-import cv2
-import numpy as np
-from collections import defaultdict
 from typing import Dict, List, Tuple
 
 class YOLOTracker:
-    def __init__(self, modelDetect, modelSegment=None, resolution=None):
+    def __init__(self, modelDetect, poseModel=None, resolution=None):
         self.modelDetect = modelDetect
-        self.modelSegment = modelSegment
+        self.poseModel = poseModel
         self.resolution = resolution
         self.logger = logging.getLogger(__name__)
         self.track_history = defaultdict(list)
@@ -123,13 +25,15 @@ class YOLOTracker:
         try:
             
             results = self.modelDetect(frame)[0]
+            pose_results = self.poseModel(frame)[0]
+            key_point_annotated_frame = pose_results.plot(boxes=False)
             detections = sv.Detections.from_ultralytics(results)
             # print(detections)
             # print(dir(detections))
             detections = self.tracker.update_with_detections(detections)
 
             if detections.empty():
-                return frame, frame
+                return frame, key_point_annotated_frame
 
             # Access the attributes based on your `sv.Detections` object structure
             # boxes = detections.boxes.cpu().numpy()
@@ -154,7 +58,7 @@ class YOLOTracker:
             ]
 
             # Annotate the frame
-            annotated_frame_heat = self.label_annotator.annotate(scene=frame.copy(), detections=detections, labels=labels_for_heatmap)
+            annotated_frame_heat = self.label_annotator.annotate(scene=key_point_annotated_frame.copy(), detections=detections, labels=labels_for_heatmap)
             heat_map_frame = self.heat_map_annotator.annotate(scene=annotated_frame_heat, detections=detections)
             annotated_frame = self.box_annotator.annotate(scene=frame.copy(), detections=detections)
             annotated_frame = self.label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)

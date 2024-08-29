@@ -15,9 +15,9 @@ from typing import Dict, List, Tuple
 import torch
 
 class YOLOWorldTracker:
-    def __init__(self, modelDetect, modelSegment=None, resolution=None):
+    def __init__(self, modelDetect, poseModel, resolution=None):
         self.modelDetect = modelDetect
-        self.modelSegment = modelSegment
+        self.poseModel = poseModel
         self.resolution = resolution
         self.logger = logging.getLogger(__name__)
         self.track_history = defaultdict(list)
@@ -32,6 +32,8 @@ class YOLOWorldTracker:
         try:
 
             results = self.modelDetect(frame)[0]
+            pose_results = self.poseModel(frame)[0]
+            key_point_annotated_frame = pose_results.plot(boxes=False)
             detections = sv.Detections.from_ultralytics(results)
             detections = self.tracker.update_with_detections(detections)
 
@@ -57,7 +59,7 @@ class YOLOWorldTracker:
             ]
 
             # Annotate the frame
-            annotated_frame_heat = self.label_annotator.annotate(scene=frame.copy(), detections=detections, labels=labels_for_heatmap)
+            annotated_frame_heat = self.label_annotator.annotate(scene=key_point_annotated_frame.copy(), detections=detections, labels=labels_for_heatmap)
             heat_map_frame = self.heat_map_annotator.annotate(scene=annotated_frame_heat, detections=detections)
             annotated_frame = self.box_annotator.annotate(scene=frame.copy(), detections=detections)
             annotated_frame = self.label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)

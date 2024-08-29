@@ -9,11 +9,10 @@ import time
 import queue
 from streamlit.delta_generator import DeltaGenerator
 from typing import BinaryIO
-from src.detection  import visualize_motion_vectors, optical_flow_motion_detection
-from src.yolovx_trackers import run_yolo_tracker, YOLOTracker
+from src.yolovx_trackers import YOLOTracker
 from src.optical_flow_tracker import OpticalFlowTracker
 from src.yolo_world_tracker import YOLOWorldTracker
-from src.loaders import load_yolo_model, load_yolo_world_model
+from src.loaders import load_yolo_model, load_yolo_world_model, load_yolo_pose_model
 from src.utils import (
     get_or_create_session_state_variable, 
     create_temp_video_file, 
@@ -90,8 +89,9 @@ def main():
     device='cuda' if cuda.is_available() else 'cpu'
     model10n = load_yolo_model(model_name='yolov10n.pt')
     model10n.to(device)
-    yolo_tracker = YOLOTracker(modelDetect=model10n)
-
+    model8npose = load_yolo_pose_model(model_name='yolov8m-pose.pt')
+    model8npose.to(device)
+    yolo_tracker = YOLOTracker(modelDetect=model10n, poseModel=model8npose)
     modelYoloWorld = load_yolo_world_model(model_name='yolov8s-world.pt')
 
 
@@ -161,7 +161,7 @@ def main():
             elif st.session_state.algortihm == 'Track based on Prompt':
                     modelYoloWorld.to(device)
                     modelYoloWorld.set_classes(st.session_state.classes)
-                    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld)
+                    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld, poseModel=model8npose)
                     yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
             else:
                 pass
