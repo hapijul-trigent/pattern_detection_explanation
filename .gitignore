@@ -1,0 +1,6 @@
+/models
+*.mp4
+*.pt
+runs/
+src/__pycache__
+outputs/temp
