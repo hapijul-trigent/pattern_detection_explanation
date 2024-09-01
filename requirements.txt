@@ -7,4 +7,3 @@ numpy
 pytest
 ultralytics
 supervision
-streamlit-webrtc
