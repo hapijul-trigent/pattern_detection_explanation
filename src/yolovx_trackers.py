@@ -28,6 +28,7 @@ class YOLOTracker:
             pose_results = self.poseModel(frame)[0]
             key_point_annotated_frame = pose_results.plot(boxes=False)
             detections = sv.Detections.from_ultralytics(results)
+            detections = detections[np.array([True if class_name in st.session_state.target_classes_yolo_vx  else False for class_name in detections.data['class_name']])]
             # print(detections)
             # print(dir(detections))
             detections = self.tracker.update_with_detections(detections)
@@ -40,6 +41,7 @@ class YOLOTracker:
             # scores = detections.scores.cpu().numpy()
             # class_ids = detections.class_ids.cpu().numpy()
             tracker_ids = detections.tracker_id
+            st.session_state.update(target_tracker_ids=tracker_ids)
 
             # Convert bounding boxes from (x, y, w, h) to (x1, y1, x2, y2)
             # bbox_data = boxes  # Adjust if necessary to match your attribute names
@@ -118,12 +120,19 @@ class YOLOTracker:
             self.logger.error(f"An error occurred: {e}", exc_info=True)
             return None
 
+
     def process_video(self, filename: str, stream_panels, output_filename: str = None) -> str:
         self.tracker.reset()
         try:
             # Setup Panels
             with stream_panels[0]: annotation_panel = st.empty()
             with stream_panels[1]:  heat_map_panel = st.empty()
+
+            st.session_state.update(
+                    target_tracker_ids=st.multiselect(
+                        label='TrackIds', options=st.session_state.tracker_ids, default=st.session_state.tracker_ids, key=f'TrackIds{np.random.randint(1, 999)}'
+                    )
+            )
 
             video = cv2.VideoCapture(filename)
             if not video.isOpened():
@@ -147,6 +156,7 @@ class YOLOTracker:
                     break
 
                 annotated_frame, heat_map_frame  = self.process_frame(frame)
+                
 
                 if isinstance(annotated_frame, np.ndarray):
                     if output_filename:
