@@ -48,13 +48,13 @@ class YOLOTracker:
 
             # Prepare labels
             labels = [
-                f"#{tracker_id} {results.names[class_id]}"
+                f"{results.names[class_id]} #{tracker_id}"
                 for class_id, tracker_id
                 in zip(detections.class_id, detections.tracker_id)
             ]
 
             labels_for_heatmap = [
-                f"#{tracker_id}"
+                f"Track #{tracker_id}"
                 for tracker_id
                 in detections.tracker_id
             ]
