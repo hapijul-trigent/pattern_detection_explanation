@@ -19,7 +19,7 @@ class YOLOTracker:
         self.track_history = defaultdict(list)
         self.tracker = sv.ByteTrack()
         self.box_annotator = sv.BoxCornerAnnotator()
-        self.label_annotator = sv.LabelAnnotator()
+        self.label_annotator = sv.LabelAnnotator(border_radius=3)
         self.tracer = sv.TraceAnnotator(thickness=3)
         self.heat_map_annotator = sv.HeatMapAnnotator(radius=30)
 
@@ -99,8 +99,12 @@ class YOLOTracker:
         
         try:
             # Setup Panels
-            with stream_panels[0]: annotation_panel = st.empty()
-            with stream_panels[1]:  heat_map_panel = st.empty()
+            with stream_panels[0]:
+                st.subheader('Scenario Recognition')
+                annotation_panel = st.empty()
+            with stream_panels[1]:  
+                st.subheader('Pose Estimation and Motion Heatmap Traces')
+                heat_map_panel = st.empty()
 
             # st.session_state.update(
             #         target_tracker_ids=st.multiselect(

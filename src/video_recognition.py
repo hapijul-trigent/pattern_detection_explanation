@@ -11,7 +11,7 @@ class FramesPreprocessor:
 
     def preprocess(self, video_tensor):
         # Optionally shorten duration
-        video_tensor = video_tensor[:16]
+        video_tensor = video_tensor
         return self.preprocess_transform(video_tensor).unsqueeze(0)
 
 class ModelInitializer:
