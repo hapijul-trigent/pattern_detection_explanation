@@ -2,6 +2,7 @@
 from torchvision.io.video import read_video
 from torchvision.models.video import r3d_18, R3D_18_Weights
 import torch
+import streamlit as st
 
 
 class FramesPreprocessor:
@@ -17,7 +18,7 @@ class ModelInitializer:
     def __init__(self, weights):
         self.weights = weights
         self.model = r3d_18(weights=weights)
-
+    
     def initialize_model(self):
         self.model.eval()
         return self.model
@@ -41,24 +42,15 @@ class ResultFormatter:
         category_name = self.categories[label]
         return f"{category_name}: {round(100 * score, 2)}%"
 
-def main(video_path: str):
-    video_tensor = frames_tensor
+def infer_action(frame_tensor, recognition_model, weights, preprocessor):
+    """ Action Inference"""
 
-    # Step 2: Initialize model and preprocessing transforms
-    weights = R3D_18_Weights.DEFAULT
-    preprocess = weights.transforms()
-    model_initializer = ModelInitializer(weights)
-    model = model_initializer.initialize_model()
-    
-    # Step 3: Preprocess the video
-    preprocessor = FramesPreprocessor(preprocess)
-    batch = preprocessor.preprocess(video_tensor)
+    batch = preprocessor.preprocess(frame_tensor)
 
     # Step 4: Perform inference
-    engine = InferenceEngine(model)
+    engine = InferenceEngine(recognition_model)
     prediction = engine.infer(batch)
 
     # Step 5: Format and print the result
     formatter = ResultFormatter(weights.meta["categories"])
-    result = formatter.format_result(prediction)
-    print(result)
+    return formatter.format_result(prediction)

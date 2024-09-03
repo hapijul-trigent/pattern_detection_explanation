@@ -6,6 +6,9 @@ import time
 from collections import defaultdict
 import supervision as sv
 from typing import Dict, List, Tuple
+import torch
+from src.video_recognition import infer_action
+
 
 class YOLOTracker:
     def __init__(self, modelDetect, poseModel=None, resolution=None):
@@ -85,54 +88,25 @@ class YOLOTracker:
             self.logger.error(f"Error processing frame: {e}", exc_info=True)
             return None #, None, None, None, None, None
 
-    def process_video_with_sink(self, filename: str, stream_panels, output_filename: str = None) -> str:
-        try:
-            annotation_panel, heat_map_panel = stream_panels
-            ### video config
-            video_info = sv.VideoInfo.from_video_path(video_path=filename)
-            frames_generator = sv.get_video_frames_generator(
-                source_path=filename, stride=1
-            )
-            frame_time = 1.0 / 24.0
-            ### Detect, track, annotate, save
-            with sv.VideoSink(target_path=filename, video_info=video_info) as sink:
-                for frame in frames_generator:
-                    start = time.time()
-                    annotated_frame = self.process_frame(frame)
 
-                    if isinstance(annotated_frame, np.ndarray):
-                        annotation_panel.image(annotated_frame, channels="BGR", use_column_width=True)
-                        # heat_map_panel.image(an, channels="BGR", use_column_width=True)
-                        sink.write_frame(frame=annotated_frame)
-                    else:
-                        self.logger.error("Error processing frame.")
-
-                    elapsed_time = time.time() - start
-                    delay = max(0, frame_time - elapsed_time)
-                    time.sleep(max(0.01, delay))
-
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
-                        break
-
-            self.logger.info(f"Finished processing video: {filename}")
-            return output_filename
-        except Exception as e:
-            self.logger.error(f"An error occurred: {e}", exc_info=True)
-            return None
-
-
-    def process_video(self, filename: str, stream_panels, output_filename: str = None) -> str:
+    def process_video(self, filename: str, stream_panels, output_filename, recognition_model, weights, preprocessor) -> str:
         self.tracker.reset()
+        frame_buffer = []
+        frame_count = 0
+        skip_frames = 1
+        max_frames = 13
+        action_label = 'Infering Action...'
+        
         try:
             # Setup Panels
             with stream_panels[0]: annotation_panel = st.empty()
             with stream_panels[1]:  heat_map_panel = st.empty()
 
-            st.session_state.update(
-                    target_tracker_ids=st.multiselect(
-                        label='TrackIds', options=st.session_state.tracker_ids, default=st.session_state.tracker_ids, key=f'TrackIds{np.random.randint(1, 999)}'
-                    )
-            )
+            # st.session_state.update(
+            #         target_tracker_ids=st.multiselect(
+            #             label='TrackIds', options=st.session_state.tracker_ids, default=st.session_state.tracker_ids, key=f'TrackIds{np.random.randint(1, 999)}'
+            #         )
+            # )
 
             video = cv2.VideoCapture(filename)
             if not video.isOpened():
@@ -157,11 +131,24 @@ class YOLOTracker:
 
                 annotated_frame, heat_map_frame  = self.process_frame(frame)
                 
+                # Recognition
+                if frame_count % (skip_frames + 1) == 0:
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame_buffer.append(frame_rgb)
+                
+                if len(frame_buffer) == max_frames:
+                    frame_tensor = torch.from_numpy(np.array(frame_buffer)).permute(0, 3, 1, 2)
+                    action_label = infer_action(frame_tensor=frame_tensor, recognition_model=recognition_model, weights=weights, preprocessor=preprocessor)
+                    action_label = f'Infered Action: {action_label}'
+                    frame_buffer.pop(0)
+
+                frame_count += 1
+
 
                 if isinstance(annotated_frame, np.ndarray):
                     if output_filename:
                         out_video.write(annotated_frame)
-                    annotation_panel.image(annotated_frame, channels="BGR", use_column_width=True, caption='Annotated Traces')
+                    annotation_panel.image(annotated_frame, channels="BGR", use_column_width=True, caption=f'{action_label}')
                     heat_map_panel.image(heat_map_frame, channels="BGR", use_column_width=True, caption='Heat Map Traces')
                 else:
                     self.logger.error("Error processing frame.")

@@ -23,6 +23,9 @@ from src.utils import (
 )
 from streamlit_webrtc import webrtc, webrtc_streamer, WebRtcMode
 from torch import cuda
+from torchvision.io.video import read_video
+from torchvision.models.video import r3d_18, R3D_18_Weights
+from src.video_recognition import ModelInitializer, FramesPreprocessor, ResultFormatter
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -98,6 +101,15 @@ def main():
     yolo_tracker = YOLOTracker(modelDetect=model10n, poseModel=model8npose)
     modelYoloWorld = load_yolo_world_model(model_name='yolov8s-world.pt')
 
+    # Recognition Model
+    weights = R3D_18_Weights.DEFAULT
+    preprocess = weights.transforms()
+    preprocessor = FramesPreprocessor(preprocess)
+    model_initializer = ModelInitializer(weights)
+    recognition_model = model_initializer.initialize_model()
+    
+    # Step 3: Preprocess the video
+    preprocessor = FramesPreprocessor(preprocess)
 
     # configPanel, previewPanel
     configPanel, previewPanel = st.columns([1, 3], gap="large")
@@ -166,7 +178,10 @@ def main():
             if st.session_state.algortihm == 'Track Objects Movement':
                 with objectTrackingPanel:
                     # save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
-                    save_path = yolo_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
+                    save_path = yolo_tracker.process_video(
+                        filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4',
+                        recognition_model=recognition_model, weights=weights, preprocessor=preprocessor
+                        )
                     # if save_path:
                     #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
             
