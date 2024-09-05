@@ -46,11 +46,8 @@ def infer_action(frame_tensor, recognition_model, weights, preprocessor):
     """ Action Inference"""
 
     batch = preprocessor.preprocess(frame_tensor)
-
-    # Step 4: Perform inference
     engine = InferenceEngine(recognition_model)
     prediction = engine.infer(batch)
 
-    # Step 5: Format and print the result
     formatter = ResultFormatter(weights.meta["categories"])
     return formatter.format_result(prediction)
