@@ -145,6 +145,11 @@ class YOLOTracker:
                     action_label = infer_action(frame_tensor=frame_tensor, recognition_model=recognition_model, weights=weights, preprocessor=preprocessor)
                     action_label = f'Infered Action: {action_label}'
                     frame_buffer.pop(0)
+                
+                if frame_count%12 == 0:
+                    # Explain 
+                    pass
+
 
                 frame_count += 1
 

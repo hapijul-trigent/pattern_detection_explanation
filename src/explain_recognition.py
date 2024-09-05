@@ -5,13 +5,13 @@ from skimage.segmentation import mark_boundaries
 from lime import lime_image
 from torchvision.transforms import functional as F
 
-# Define a class to handle image conversion
+# class to handle image conversion
 class ImageConverter:
     @staticmethod
     def to_pil_image(frame):
         return F.to_pil_image(frame)
 
-# Define a class to preprocess images for LIME
+# class to preprocess images for LIME
 class LIMEPreprocessor:
     def __init__(self, engine):
         self.engine = engine
@@ -21,7 +21,7 @@ class LIMEPreprocessor:
         imgs_tensor = imgs_tensor.unsqueeze(1).repeat(1, 3, 1, 1, 1)
         return self.engine.infer(imgs_tensor).numpy()
 
-# Define a class to handle LIME explanations
+# class to handle LIME explanations
 class LIMEExplanation:
     def __init__(self, image, classifier_fn):
         self.image = image
@@ -37,7 +37,7 @@ class LIMEExplanation:
             num_samples=num_samples
         )
 
-# Define a class to visualize explanations
+# class to visualize explanations
 class ExplanationVisualizer:
     def __init__(self, weights):
         self.weights = weights
