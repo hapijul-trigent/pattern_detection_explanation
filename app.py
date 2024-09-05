@@ -107,6 +107,7 @@ def main():
     preprocessor = FramesPreprocessor(preprocess)
     model_initializer = ModelInitializer(weights)
     recognition_model = model_initializer.initialize_model()
+    recognition_model.to(device=device)
     
     # Step 3: Preprocess the video
     preprocessor = FramesPreprocessor(preprocess)
@@ -186,9 +187,9 @@ def main():
     
         
         # Clean up the temporary file after processing
-        # if source:
-        #     if os.path.exists(source):
-        #         os.remove(source)
+        if source and not video_file:
+            if os.path.exists(source):
+                os.remove(source)
 
 if __name__ == "__main__":
     main()
