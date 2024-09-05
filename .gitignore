@@ -3,3 +3,4 @@
 runs/
 src/__pycache__
 outputs/temp
+ tests/__pycache__/
