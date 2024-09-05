@@ -111,31 +111,23 @@ def main():
     # Step 3: Preprocess the video
     preprocessor = FramesPreprocessor(preprocess)
 
-    # configPanel, previewPanel
-    configPanel, previewPanel = st.columns([1, 3], gap="large")
+
     flag = False
     source = None
 
-    # Config Panel
-    with configPanel:
-        # Upload video
+    # Panels
+    upload_panel, config_panel = st.columns([2, 3], gap='large')
+    
+    # Upload video
+    with upload_panel:
         video_file = st.file_uploader("Upload a video", type=["mp4",], disabled=st.session_state.start_process_button_clicked)
-        # if not video_file:
-        #     def frame_callback(frame):
-        #         # Process the frame using the color-based tracker
-        #         img = process_frame(frame)
-
-        #         # Return the modified frame
-        #         return img
-        #     st.subheader("Or Stream from Camera.")
-        #     webrtc_streamer(key="object-tracker", 
-        #                         mode=WebRtcMode.SENDRECV, 
-        #                         video_frame_callback=frame_callback)
 
         if video_file is not None:
             source = create_temp_video_file(video_file=video_file)
-        if video_file:
-            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Track Every Movement', 'Track Objects Movement', 'Track based on Prompt'], disabled=st.session_state.start_process_button_clicked)
+    
+    if video_file:
+        with config_panel:
+            st.session_state.algortihm = st.selectbox(label='Algorithm', options=['Track Objects Movement', 'Track based on Prompt', 'Track Every Movement'], disabled=st.session_state.start_process_button_clicked)
             
             if st.session_state.algortihm == 'Track based on Prompt':
                 st.session_state.update(classes_yolo_world=str(st.text_input(label='Enter Objects you want to track: ', placeholder='format as comma sperated: white truck, black car, bycycle....')).split(','))
@@ -145,53 +137,52 @@ def main():
                 options = list(st.session_state.classes_yolo_vx.values())
                 st.session_state.update(target_classes_yolo_vx=st.multiselect(label='Select Objects', options=options, default=options[:5]))
                 print(st.session_state.target_classes_yolo_vx)
-        
-        # button to start processing
-        if not st.session_state.processed and video_file:
-            if not st.session_state.start_process_button_clicked:
-                st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=True))
-                pass
-            else:
-                processing, stop = st.columns([1.5, 3])
-                with processing:
-                    st.button("Tracking...", disabled=True)
-                with stop:
-                    st.button("Stop", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
-        else:
-            st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=False), disabled=True)
     
+    # button to start processing
+    if not st.session_state.processed and video_file:
+        if not st.session_state.start_process_button_clicked:
+            st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=True))
+            pass
+        else:
+            processing, stop = st.columns([1.5, 3])
+            with processing:
+                st.button("Tracking...", disabled=True)
+            with stop:
+                st.button("Stop", on_click=lambda: st.session_state.update(start_process_button_clicked=False))
+    else:
+        st.button("Track", on_click=lambda: st.session_state.update(start_process_button_clicked=False), disabled=True)
+
     # PreviewPanel
     yolov8_thread = None
-    with previewPanel:
-        if st.session_state.start_process_button_clicked: st.title(f"Motion Tracking- {st.session_state.algortihm}")
-        # two more columns named objectTrackingPanel, segmentationPanel
-        objectTrackingPanel, segmentationPanel = st.columns([1, 1], gap='large')
 
+    if st.session_state.start_process_button_clicked: st.title(f"Insights - {st.session_state.algortihm}")
+    # two more columns named objectTrackingPanel, segmentationPanel
+    objectTrackingPanel, segmentationPanel = st.columns([1, 1], gap='large')
+    
+    if st.session_state.start_process_button_clicked and source:
+        # panel = st.empty()
+        if st.session_state.algortihm == 'Track Every Movement':
+            
+            optical_flow = OpticalFlowTracker(video_path=source, resolution=(1280, 720))
+            optical_flow.process_video(objectTrackingPanel, segmentationPanel)
         
-        if st.session_state.start_process_button_clicked and source:
-            # panel = st.empty()
-            if st.session_state.algortihm == 'Track Every Movement':
-                
-                optical_flow = OpticalFlowTracker(video_path=source, resolution=(1280, 720))
-                optical_flow.process_video(objectTrackingPanel, segmentationPanel)
-            
-            if st.session_state.algortihm == 'Track Objects Movement':
-                with objectTrackingPanel:
-                    # save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
-                    save_path = yolo_tracker.process_video(
-                        filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4',
-                        recognition_model=recognition_model, weights=weights, preprocessor=preprocessor
-                        )
-                    # if save_path:
-                    #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
-            
-            if st.session_state.algortihm == 'Track based on Prompt':
-                    modelYoloWorld.to(device)
-                    modelYoloWorld.set_classes(st.session_state.classes_yolo_world)
-                    yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld, poseModel=model8npose)
-                    yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
-            
-            st.session_state.start_process_button_clicked = False
+        if st.session_state.algortihm == 'Track Objects Movement':
+            with objectTrackingPanel:
+                # save_path = run_yolo_tracker(filename=source, modelDetect=modelDetect, modelSegment=modelSegment, file_index=1, resolution=resolution)
+                save_path = yolo_tracker.process_video(
+                    filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4',
+                    recognition_model=recognition_model, weights=weights, preprocessor=preprocessor
+                    )
+                # if save_path:
+                #     panel.video(data='out.mp4', format='video/mp4', autoplay=True)
+        
+        if st.session_state.algortihm == 'Track based on Prompt':
+                modelYoloWorld.to(device)
+                modelYoloWorld.set_classes(st.session_state.classes_yolo_world)
+                yolo_word_tracker = YOLOWorldTracker(modelDetect=modelYoloWorld, poseModel=model8npose)
+                yolo_word_tracker.process_video(filename=source, stream_panels=[objectTrackingPanel, segmentationPanel], output_filename='out.mp4')
+        
+        st.session_state.start_process_button_clicked = False
     
         
         # Clean up the temporary file after processing

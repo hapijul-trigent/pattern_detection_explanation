@@ -8,3 +8,5 @@ pytest
 ultralytics
 supervision
 pytorchvideo
+skimage
+lime
