@@ -39,11 +39,12 @@ pattern_detection_explanation/
 │   ├── video_recognition.py       # Action recognition with PyTorch models
 │   ├── yolo_world_tracker.py      # YOLO-based object tracking with pose estimation
 │   └── yolovx_trackers.py         # Advanced object trackers with YOLO models
-├── tests/
-│   ├── test_drawing.py            # Test for drawing functions
-│   ├── test_model.py              # Test for model loading
-│   ├── test_postprocessing.py     # Test for post-processing model output
-│   └── test_preprocessing.py      # Test for image preprocessing
+tests/
+├── test_detection.py
+├── test_explain_recognition.py
+├── test_optical_flow_tracker.py
+├── test_video_recognition.py
+└── test_yolovx_trackers.py
 ├── app.py                         # Main Streamlit application script
 ├── README.md                      # Project overview and instructions
 ├── requirements.txt               # Python dependencies
