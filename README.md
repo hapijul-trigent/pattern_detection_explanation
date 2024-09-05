@@ -40,11 +40,11 @@ pattern_detection_explanation/
 │   ├── yolo_world_tracker.py      # YOLO-based object tracking with pose estimation
 │   └── yolovx_trackers.py         # Advanced object trackers with YOLO models
 tests/
-├── test_detection.py
-├── test_explain_recognition.py
-├── test_optical_flow_tracker.py
-├── test_video_recognition.py
-└── test_yolovx_trackers.py
+│   ├── test_detection.py
+│   ├── test_explain_recognition.py
+│   ├── test_optical_flow_tracker.py
+│   ├── test_video_recognition.py
+│   └── test_yolovx_trackers.py
 ├── app.py                         # Main Streamlit application script
 ├── README.md                      # Project overview and instructions
 ├── requirements.txt               # Python dependencies
